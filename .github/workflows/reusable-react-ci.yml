@@ -1,0 +1,79 @@
+name: Reusable React Build & Test
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: 'The version of Node.js to use'
+        required: false
+        type: string
+        default: '20.x'
+      upload-artifact:
+        description: 'Whether to upload the build output as an artifact'
+        required: false
+        type: boolean
+        default: true
+      deploy-to-s3:
+        description: 'Set to true to trigger S3 deployment'
+        required: false
+        type: boolean
+        default: false
+      s3-bucket-name:
+        description: 'for-github-workflow'
+        required: false
+        type: string
+      aws-region:
+        description: 'The AWS region of the S3 bucket'
+        required: false
+        type: string
+        default: 'ap-south-1'
+
+jobs:
+  build-and-test:
+    name: Build, Test, and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ inputs.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm' 
+
+      - name: Install dependencies
+        run: npm ci 
+
+      - name: Run Linter
+        run: npm run lint
+        continue-on-error: true 
+
+      - name: Run Tests
+        run: npm test
+        env:
+          CI: true 
+
+      - name: Build Application
+        run: npm run build
+
+      - name: Upload Build Artifact
+        if: ${{ inputs.upload-artifact == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: react-build-${{ github.sha }}
+          path: build/ 
+          retention-days: 7
+
+      - name: Configure AWS Credentials
+        if: ${{ inputs.deploy-to-s3 == true }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ inputs.aws-region }}
+
+      - name: Deploy to S3
+        if: ${{ inputs.deploy-to-s3 == true }}
+        run: aws s3 sync build/ s3://${{ inputs.s3-bucket-name }} --delete
