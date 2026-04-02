@@ -1,4 +1,4 @@
-name: React Build Pipeline
+name: React Build and Deploy Pipeline
 
 on:
   push:
@@ -6,8 +6,8 @@ on:
       - main 
 
 jobs:
-  build:
-    name: Build React App
+  build-and-deploy:
+    name: Build & Deploy React App
     runs-on: ubuntu-latest
 
     steps:
@@ -26,8 +26,15 @@ jobs:
       - name: Build Application
         run: npm run build
 
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
+      # --- THE NEW DEPLOYMENT STEPS ---
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          name: react-build
-          path: build/
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1 # Make sure this matches your bucket's region!
+
+      - name: Deploy to S3
+        # IMPORTANT: Replace YOUR-BUCKET-NAME below with your actual S3 bucket name
+        run: aws s3 sync build/ s3://YOUR-BUCKET-NAME --delete
