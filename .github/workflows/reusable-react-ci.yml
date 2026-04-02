@@ -19,9 +19,10 @@ on:
         type: boolean
         default: false
       s3-bucket-name:
-        description: 'for-github-workflow'
+        description: 'The exact name of the S3 bucket'
         required: false
         type: string
+        default: 'for-github-workflow'
       aws-region:
         description: 'The AWS region of the S3 bucket'
         required: false
