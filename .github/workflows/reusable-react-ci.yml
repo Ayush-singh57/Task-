@@ -1,26 +1,40 @@
-name: Master Release Pipeline
+name: React Build and Deploy Pipeline
 
 on:
   push:
     branches:
-      - main
+      - main 
 
 jobs:
-  # JOB 1: Deploy to Staging automatically on push
-  deploy-to-staging:
-    name: Staging Release
-    uses: ./.github/workflows/reusable-deploy.yml
-    with:
-      environment-name: 'Staging'
-      s3-bucket: 'for-reusable-workflow'
-    secrets: inherit
+  build-and-deploy:
+    name: Build & Deploy React App
+    runs-on: ubuntu-latest
 
-  # JOB 2: Deploy to Prod ONLY after Staging succeeds
-  deploy-to-prod:
-    name: Production Release
-    needs: deploy-to-staging # This forces GitHub to wait for Staging to finish
-    uses: ./.github/workflows/reusable-deploy.yml
-    with:
-      environment-name: 'Production'
-      s3-bucket: 'my-ap-south-1-indore'
-    secrets: inherit
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' 
+          cache: 'npm'       
+
+      - name: Install Dependencies
+        run: npm ci 
+
+      - name: Build Application
+        run: npm run build
+
+      # --- THE NEW DEPLOYMENT STEPS ---
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1 # Make sure this matches your bucket's region!
+
+      - name: Deploy to S3
+        # IMPORTANT: Replace YOUR-BUCKET-NAME below with your actual S3 bucket name
+        run: aws s3 sync build/ s3://for-github-workflow --delete
